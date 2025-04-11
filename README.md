@@ -6,3 +6,5 @@
 orbitals are added
 
 I want to make project for adding orbitals and making molecules.
+
+I made html version with three.js. Its nearly samething with pyton version but it more opitimized
