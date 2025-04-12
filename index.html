@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +12,7 @@
             padding: 0;
             overflow: hidden;
             font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
         }
         #container {
             position: relative;
@@ -22,29 +23,75 @@
             position: absolute;
             top: 10px;
             left: 10px;
-            background-color: rgba(255, 255, 255, 0.7);
-            padding: 10px;
-            border-radius: 5px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 15px;
+            border-radius: 8px;
             font-size: 14px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            max-width: 250px;
         }
         #controls {
             position: absolute;
             bottom: 10px;
             left: 10px;
-            background-color: rgba(255, 255, 255, 0.7);
-            padding: 10px;
-            border-radius: 5px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            max-width: 90%;
+            max-height: 40vh;
+            overflow-y: auto;
         }
         button {
             margin: 5px;
             padding: 8px 12px;
             cursor: pointer;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            background-color: #f8f8f8;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #e8e8e8;
+        }
+        button.active {
+            background-color: #4CAF50;
+            color: white;
         }
         .quality-selector {
             margin: 10px 0;
         }
         .quality-selector label {
             margin-right: 10px;
+        }
+        .orbital-group {
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            padding: 8px;
+            border-radius: 5px;
+            background-color: #fff;
+        }
+        .orbital-group h3 {
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+        .action-buttons {
+            margin-bottom: 10px;
+        }
+        .add-group-button {
+            font-size: 0.8em;
+            padding: 4px 8px;
+            margin-left: 8px;
+        }
+        #fps-counter {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
         }
     </style>
 </head>
@@ -55,71 +102,247 @@
             <div id="orbital-info">Electron Configuration: 1s</div>
         </div>
         <div id="controls">
-            <button id="add-orbital">Add Orbital</button>
-            <button id="remove-orbital">Delete Orbital</button>
+            <div class="action-buttons">
+                <button id="clear-orbitals">Clear All</button>
+                <button id="add-all-orbitals">Add All Orbitals</button>
+            </div>
             <div class="quality-selector">
                 <label>Quality:</label>
-                <input type="radio" name="quality" id="low" value="low" checked> <label for="low">Düşük</label>
-                <input type="radio" name="quality" id="medium" value="medium"> <label for="medium">Orta</label>
-                <input type="radio" name="quality" id="high" value="high"> <label for="high">Yüksek</label>
+                <input type="radio" name="quality" id="low" value="low" checked> <label for="low">Low</label>
+                <input type="radio" name="quality" id="medium" value="medium"> <label for="medium">Medium</label>
+                <input type="radio" name="quality" id="high" value="high"> <label for="high">High</label>
+            </div>
+            <div class="quality-selector">
+                <label>Performance:</label>
+                <input type="checkbox" id="pause-render" name="pause-render">
+                <label for="pause-render">Pause render during interaction</label>
+            </div>
+            
+            <div class="orbital-groups" id="orbital-buttons">
             </div>
         </div>
+        <div id="fps-counter">FPS: 0</div>
     </div>
 
     <script>
         let scene, camera, renderer, controls;
-        let orbitals = [];
         let meshes = [];
+        let isRendering = true;
+        let lastFrameTime = 0;
+        let isPaused = false;
+        
+        // orbital calculations
+        const orbitalCache = {};
 
         const availableOrbitals = [
             { n: 1, l: 0, m: 0, name: "1s", color: 0xff0000 },
             { n: 2, l: 0, m: 0, name: "2s", color: 0x00ff00 },
-            { n: 2, l: 1, m: -1, name: "2p", color: 0x0000ff },
-            { n: 2, l: 1, m: 0, name: "2p", color: 0x00ffff },
-            { n: 2, l: 1, m: 1, name: "2p", color: 0xff00ff },
+            { n: 2, l: 1, m: -1, name: "2p_x", color: 0x0000ff },
+            { n: 2, l: 1, m: 0, name: "2p_y", color: 0x00ffff },
+            { n: 2, l: 1, m: 1, name: "2p_z", color: 0xff00ff },
             { n: 3, l: 0, m: 0, name: "3s", color: 0xffff00 },
-            { n: 3, l: 1, m: -1, name: "3p", color: 0x800080 },
-            { n: 3, l: 1, m: 0, name: "3p", color: 0xa52a2a },
-            { n: 3, l: 1, m: 1, name: "3p", color: 0xffc0cb },
+            { n: 3, l: 1, m: -1, name: "3p_x", color: 0x800080 },
+            { n: 3, l: 1, m: 0, name: "3p_y", color: 0xa52a2a },
+            { n: 3, l: 1, m: 1, name: "3p_z", color: 0xffc0cb },
             { n: 4, l: 0, m: 0, name: "4s", color: 0xffa500 },
-            { n: 3, l: 2, m: -2, name: "3d", color: 0x00ff00 },
-            { n: 3, l: 2, m: -1, name: "3d", color: 0x808080 },
-            { n: 3, l: 2, m: 0, name: "3d", color: 0x808000 },
-            { n: 3, l: 2, m: 1, name: "3d", color: 0x000080 },
-            { n: 3, l: 2, m: 2, name: "3d", color: 0x008080 },
-            { n: 4, l: 1, m: -1, name: "4p", color: 0xff7f50 },
-            { n: 4, l: 1, m: 0, name: "4p", color: 0xffd700 },
-            { n: 4, l: 1, m: 1, name: "4p", color: 0xee82ee }
+            { n: 3, l: 2, m: -2, name: "3d_xy", color: 0x00ff00 },
+            { n: 3, l: 2, m: -1, name: "3d_yz", color: 0x808080 },
+            { n: 3, l: 2, m: 0, name: "3d_z²", color: 0x808000 },
+            { n: 3, l: 2, m: 1, name: "3d_xz", color: 0x000080 },
+            { n: 3, l: 2, m: 2, name: "3d_x²-y²", color: 0x008080 },
+            { n: 4, l: 1, m: -1, name: "4p_x", color: 0xff7f50 },
+            { n: 4, l: 1, m: 0, name: "4p_y", color: 0xffd700 },
+            { n: 4, l: 1, m: 1, name: "4p_z", color: 0xee82ee }
         ];
 
         const qualitySettings = {
-            'low': { resolution: 16 },
-            'medium': { resolution: 24 },
-            'high': { resolution: 36 }
+            'low': { resolution: 12 },
+            'medium': { resolution: 20 },
+            'high': { resolution: 32 }
         };
 
         let currentQuality = 'low';
-        let currentOrbitals = [availableOrbitals[0]]; //1s
+        let currentOrbitals = [availableOrbitals[0]]; // start with 1s
+        
+        const geometryCache = {};
+        const materialCache = {};
 
-        // three.js 
+        // track fps
+        let frameCount = 0;
+        let lastFpsUpdate = 0;
+
+        // organize orbitals by type
+        function groupOrbitalsByType() {
+            const groups = {};
+            
+            availableOrbitals.forEach(orbital => {
+                const baseName = orbital.name.split('_')[0];
+                if (!groups[baseName]) {
+                    groups[baseName] = [];
+                }
+                groups[baseName].push(orbital);
+            });
+            
+            return groups;
+        }
+
+        // create buttons for orbitals
+        function createOrbitalButtons() {
+            const orbitalGroups = groupOrbitalsByType();
+            const container = document.getElementById('orbital-buttons');
+            
+            // sort groups by n and l values
+            const sortedGroupNames = Object.keys(orbitalGroups).sort((a, b) => {
+                const nA = parseInt(a[0]);
+                const nB = parseInt(b[0]);
+                
+                if (nA !== nB) return nA - nB;
+                
+                const typeA = a.substr(1);
+                const typeB = b.substr(1);
+                                const typeOrder = { 's': 0, 'p': 1, 'd': 2, 'f': 3 };
+                return typeOrder[typeA] - typeOrder[typeB];
+            });
+            
+            sortedGroupNames.forEach(groupName => {
+                const orbitals = orbitalGroups[groupName];
+                
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'orbital-group';
+                
+                const groupHeader = document.createElement('h3');
+                groupHeader.textContent = groupName;
+
+            
+                const addGroupButton = document.createElement('button');
+                addGroupButton.textContent = "Add All";
+                addGroupButton.className = 'add-group-button';
+                addGroupButton.addEventListener('click', function() {
+                    addOrbitalGroup(orbitals);
+                });
+                groupHeader.appendChild(addGroupButton);
+                
+                groupDiv.appendChild(groupHeader);
+                
+                orbitals.forEach(orbital => {
+                    const button = document.createElement('button');
+                    const displayName = orbital.name.includes('_') ? 
+                        orbital.name.split('_')[1] : 
+                        orbital.name;
+                    
+                    button.textContent = displayName;
+                    button.dataset.n = orbital.n;
+                    button.dataset.l = orbital.l;
+                    button.dataset.m = orbital.m;
+                    button.dataset.name = orbital.name;
+                    
+                    button.addEventListener('click', function() {
+                        toggleOrbital(this, orbital);
+                    });
+                    
+                    // check if this orbital is already active
+                    if (isOrbitalActive(orbital)) {
+                        button.classList.add('active');
+                    }
+                    
+                    groupDiv.appendChild(button);
+                });
+                
+                container.appendChild(groupDiv);
+            });
+        }
+        
+        // check if an orbital is already in the current set
+        function isOrbitalActive(orbital) {
+            return currentOrbitals.some(o => 
+                o.n === orbital.n && o.l === orbital.l && o.m === orbital.m
+            );
+        }
+        
+        // orbital on/off
+        function toggleOrbital(button, orbital) {
+            const isActive = button.classList.contains('active');
+            
+            if (isActive) {
+                // Remove orbital
+                currentOrbitals = currentOrbitals.filter(o => 
+                    !(o.n === orbital.n && o.l === orbital.l && o.m === orbital.m)
+                );
+                button.classList.remove('active');
+            } else {
+                if (!isOrbitalActive(orbital)) {
+                    currentOrbitals.push(orbital);
+                    button.classList.add('active');
+                }
+            }
+            
+            renderOrbitals();
+        }
+        
+        // add all orbitals from a group
+        function addOrbitalGroup(orbitals) {
+            let changed = false;
+            
+            orbitals.forEach(orbital => {
+                if (!isOrbitalActive(orbital)) {
+                    currentOrbitals.push(orbital);
+                    changed = true;
+                    
+                    const buttons = document.querySelectorAll(`button[data-name="${orbital.name}"]`);
+                    buttons.forEach(button => button.classList.add('active'));
+                }
+            });
+            
+            if (changed) renderOrbitals();
+        }
+        
+        function addAllOrbitals() {
+            if (currentOrbitals.length === availableOrbitals.length &&
+                availableOrbitals.every(o => isOrbitalActive(o))) {
+                return; 
+            }
+            
+            currentOrbitals = [...availableOrbitals];
+            
+            const buttons = document.querySelectorAll('#orbital-buttons button:not(.add-group-button)');
+            buttons.forEach(button => button.classList.add('active'));
+            
+            renderOrbitals();
+        }
+
         function init() {
-           
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0xf0f0f0);
 
-          
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.z = 5;
 
             // renderer
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: false, // disable antialiasing for performance
+                powerPreference: "high-performance" 
+            });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio
             document.getElementById('container').appendChild(renderer.domElement);
 
-            // controller
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
+            controls.rotateSpeed = 0.5;
+            
+            controls.addEventListener('start', function() {
+                if (document.getElementById('pause-render').checked) {
+                    isPaused = true;
+                }
+            });
+            
+            controls.addEventListener('end', function() {
+                isPaused = false;
+                if (document.getElementById('pause-render').checked) {
+                    render();
+                }
+            });
 
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
             scene.add(ambientLight);
@@ -128,26 +351,67 @@
             directionalLight.position.set(1, 1, 1);
             scene.add(directionalLight);
 
-            // draw first one
+            const nucleusGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+            const nucleusMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+            const nucleus = new THREE.Mesh(nucleusGeometry, nucleusMaterial);
+            scene.add(nucleus);
+
+            // create orbital buttons
+            createOrbitalButtons();
+
+            // draw first orbital
             renderOrbitals();
 
-            document.getElementById('add-orbital').addEventListener('click', addOrbital);
-            document.getElementById('remove-orbital').addEventListener('click', removeOrbital);
+            // event listeners
+            document.getElementById('clear-orbitals').addEventListener('click', clearOrbitals);
+            document.getElementById('add-all-orbitals').addEventListener('click', addAllOrbitals);
+            document.getElementById('pause-render').addEventListener('change', function() {
+                isPaused = false; // reset pause state when preference changes
+            });
             
+            // Quality selector
             const qualityRadios = document.querySelectorAll('input[name="quality"]');
             qualityRadios.forEach(radio => {
                 radio.addEventListener('change', function() {
                     if (this.checked) {
                         currentQuality = this.value;
+                        
+                        // clear geometry cache on quality change
+                        for (const key in geometryCache) {
+                            if (geometryCache[key]) {
+                                geometryCache[key].dispose();
+                            }
+                        }
+                        geometryCache = {};
+                        
+                        // clear orbital cache on quality change
+                        orbitalCache = {};
+                        
                         renderOrbitals();
                     }
                 });
             });
 
-            // resize
-            window.addEventListener('resize', onWindowResize);
+            let resizeTimeout;
+            window.addEventListener('resize', function() {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(onWindowResize, 250);
+            });
 
+            // start animation loop
             animate();
+        }
+
+        function getCachedOrbitalData(n, l, m, resolution, scaleFactor) {
+            const key = `${n}_${l}_${m}_${resolution}_${scaleFactor}`;
+            
+            if (orbitalCache[key]) {
+                return orbitalCache[key];
+            }
+            
+            const data = calculateOrbital(n, l, m, resolution, scaleFactor);
+            orbitalCache[key] = data;
+            return data;
         }
 
         function calculateOrbital(n, l, m, resolution, scaleFactor = 0.5) {
@@ -161,31 +425,31 @@
                     let Y = 0;
                     
                     if (l === 0) {
-                        Y = 0.5;
+                        Y = 0.5; // s orbital: spherical
                     } else if (l === 1) {
                         if (m === 0) {
-                            Y = Math.cos(theta);
+                            Y = Math.cos(theta); // p_z
                         } else if (m === 1 || m === -1) {
-                            Y = Math.sin(theta) * (m === 1 ? Math.cos(phi) : Math.sin(phi));
+                            Y = Math.sin(theta) * (m === 1 ? Math.cos(phi) : Math.sin(phi)); // p_x, p_y
                         }
                     } else if (l === 2) {
                         if (m === 0) {
-                            Y = (3 * Math.cos(theta) * Math.cos(theta) - 1) / 2;
+                            Y = (3 * Math.cos(theta) * Math.cos(theta) - 1) / 2; // d_z²
                         } else if (m === 1 || m === -1) {
-                            Y = Math.sin(theta) * Math.cos(theta) * (m === 1 ? Math.cos(phi) : Math.sin(phi));
+                            Y = Math.sin(theta) * Math.cos(theta) * (m === 1 ? Math.cos(phi) : Math.sin(phi)); // d_xz, d_yz
                         } else if (m === 2 || m === -2) {
-                            Y = Math.sin(theta) * Math.sin(theta) * (m === 2 ? Math.cos(2 * phi) : Math.sin(2 * phi));
+                            Y = Math.sin(theta) * Math.sin(theta) * (m === 2 ? Math.cos(2 * phi) : Math.sin(2 * phi)); // d_x²-y², d_xy
                         }
                     }
                     
-                    Y = Math.abs(Y);
+                    Y = Math.abs(Y); // Use absolute value for visualization
                     
-                    const r = n;
-                    let R = Math.exp(-r/n) * Math.pow(2*r/n, l);
+                    const r = n; // radial distance
+                    let R = Math.exp(-r/n) * Math.pow(2*r/n, l); 
                     
-                    const psi = R * Y;
+                    const psi = R * Y; 
                     
-                    const rScale = scaleFactor * n;
+                    const rScale = scaleFactor * n; 
                     
                     const x = rScale * psi * Math.sin(theta) * Math.cos(phi);
                     const y = rScale * psi * Math.sin(theta) * Math.sin(phi);
@@ -198,34 +462,61 @@
             return data;
         }
 
-        function renderOrbitals() {
-            meshes.forEach(mesh => scene.remove(mesh));
-            meshes = [];
+        function getGeometry(resolution) {
+            const key = `geometry_${resolution}`;
             
-            if (currentOrbitals.length === 0) return;
+            if (!geometryCache[key]) {
+                geometryCache[key] = new THREE.SphereGeometry(1, resolution, resolution);
+            }
             
-            const maxN = Math.max(...currentOrbitals.map(o => o.n));
+            return geometryCache[key].clone(); // clone to avoid modifying the cached version
+        }
+        
+        function getMaterial(color) {
+            const key = `material_${color}`;
             
-            currentOrbitals.forEach(orbital => {
-                const scale = 0.8 + 0.4 * (orbital.n / maxN);
-                const resolution = qualitySettings[currentQuality].resolution;
-                
-                const orbitalData = calculateOrbital(
-                    orbital.n, orbital.l, orbital.m, 
-                    resolution, scale
-                );
-                
-                const geometry = new THREE.SphereGeometry(1, resolution, resolution);
-                const material = new THREE.MeshPhongMaterial({
-                    color: orbital.color,
+            if (!materialCache[key]) {
+                materialCache[key] = new THREE.MeshPhongMaterial({
+                    color: color,
                     transparent: true,
                     opacity: 0.6,
                     side: THREE.DoubleSide
                 });
+            }
+            
+            return materialCache[key];
+        }
+
+        function renderOrbitals() {
+            // only proceed if we're not paused
+            if (isPaused) return;
+            
+            // remove existing meshes
+            meshes.forEach(mesh => scene.remove(mesh));
+            meshes = [];
+            
+            if (currentOrbitals.length === 0) {
+                updateOrbitalInfo();
+                render(); // force a render
+                return;
+            }
+            
+            const maxN = Math.max(...currentOrbitals.map(o => o.n));
+            const resolution = qualitySettings[currentQuality].resolution;
+            
+            currentOrbitals.forEach(orbital => {
+                const scale = 0.8 + 0.4 * (orbital.n / maxN);
+                
+                const orbitalData = getCachedOrbitalData(
+                    orbital.n, orbital.l, orbital.m, 
+                    resolution, scale
+                );
+                
+                const geometry = getGeometry(resolution);
+                const material = getMaterial(orbital.color);
                 
                 const mesh = new THREE.Mesh(geometry, material);
                 
-                // vertex update
                 const positions = geometry.attributes.position;
                 for (let i = 0; i < positions.count; i++) {
                     const data = orbitalData[i % orbitalData.length];
@@ -238,65 +529,83 @@
             });
             
             updateOrbitalInfo();
+            render(); 
         }
 
         function updateOrbitalInfo() {
             const config = {};
             currentOrbitals.forEach(orbital => {
-                if (!config[orbital.name]) {
-                    config[orbital.name] = 0;
+                const name = orbital.name.split('_')[0];
+                if (!config[name]) {
+                    config[name] = [];
                 }
-                config[orbital.name]++;
+                config[name].push(orbital.name);
             });
             
+            // organize by principal quantum number
             const nGroups = {};
-            for (const [orbital, count] of Object.entries(config)) {
-                const n = orbital[0];
+            for (const [orbitalType, orbitals] of Object.entries(config)) {
+                const n = orbitalType[0];
                 if (!nGroups[n]) {
                     nGroups[n] = [];
-                }
-                nGroups[n].push(`${orbital}${count > 1 ? count : ''}`);
+                } 
+                nGroups[n].push(...orbitals);
             }
             
-            let result = "Orbitals:<br>";
-            Object.keys(nGroups).sort().forEach(n => {
-                result += nGroups[n].join("  ") + "<br>";
-            });
+            let result = "Active Orbitals:<br>";
+            if (Object.keys(nGroups).length === 0) {
+                result += "Not Active Any Orbitals";
+            } else {
+                Object.keys(nGroups).sort().forEach(n => {
+                    result += `n=${n}: ${nGroups[n].join(", ")}<br>`;
+                });
+            }
             
             document.getElementById('orbital-info').innerHTML = result;
         }
 
-        // add new orbital
-        function addOrbital() {
-            for (const orbital of availableOrbitals) {
-                if (!currentOrbitals.some(o => 
-                    o.n === orbital.n && o.l === orbital.l && o.m === orbital.m
-                )) {
-                    currentOrbitals.push(orbital);
-                    renderOrbitals();
-                    break;
-                }
-            }
-        }
-
-        // delete last orbital
-        function removeOrbital() {
-            if (currentOrbitals.length > 0) {
-                currentOrbitals.pop();
-                renderOrbitals();
-            }
+        // clear all orbitals
+        function clearOrbitals() {
+            if (currentOrbitals.length === 0) return; 
+            
+            currentOrbitals = [];
+            
+            // update button states
+            const buttons = document.querySelectorAll('#orbital-buttons button:not(.add-group-button)');
+            buttons.forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            renderOrbitals();
         }
 
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            render(); 
         }
 
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
+        function render() {
             renderer.render(scene, camera);
+        }
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+            
+            controls.update();
+            
+            if (isPaused) return;
+            
+            frameCount++;
+            if (time - lastFpsUpdate > 1000) {
+                const fps = Math.round((frameCount * 1000) / (time - lastFpsUpdate));
+                document.getElementById('fps-counter').textContent = `FPS: ${fps}`;
+                lastFpsUpdate = time;
+                frameCount = 0;
+            }
+            
+            render();
         }
 
         window.addEventListener('load', init);
