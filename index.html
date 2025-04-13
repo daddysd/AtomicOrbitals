@@ -93,35 +93,60 @@
             border-radius: 4px;
             font-size: 12px;
         }
+        #language-switcher {
+            position: absolute;
+            top: 10px;
+            right: 80px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 24px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            z-index: 1000;
+        }
+        .lang-flag {
+            margin: 0 5px;
+            cursor: pointer;
+            opacity: 0.6;
+            transition: opacity 0.3s;
+        }
+        .lang-flag:hover, .lang-flag.active {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
     <div id="container">
         <div id="info">
-            <h2>Atomic Orbital Visualiser</h2>
-            <div id="orbital-info">Electron Configuration: 1s</div>
+            <h2 class="lang" data-en="Atomic Orbital Visualiser" data-tr="Atom Orbitalleri Görselleştirici">Atomic Orbital Visualiser</h2>
+            <div id="orbital-info" class="lang" data-en="Electron Configuration: 1s" data-tr="Elektron Konfigürasyonu: 1s">Electron Configuration: 1s</div>
         </div>
         <div id="controls">
             <div class="action-buttons">
-                <button id="clear-orbitals">Clear All</button>
-                <button id="add-all-orbitals">Add All Orbitals</button>
+                <button id="clear-orbitals" class="lang" data-en="Clear All" data-tr="Tümünü Temizle">Clear All</button>
+                <button id="add-all-orbitals" class="lang" data-en="Add All Orbitals" data-tr="Tüm Orbitalleri Ekle">Add All Orbitals</button>
             </div>
             <div class="quality-selector">
-                <label>Quality:</label>
-                <input type="radio" name="quality" id="low" value="low" checked> <label for="low">Low</label>
-                <input type="radio" name="quality" id="medium" value="medium"> <label for="medium">Medium</label>
-                <input type="radio" name="quality" id="high" value="high"> <label for="high">High</label>
+                <label class="lang" data-en="Quality:" data-tr="Kalite:">Quality:</label>
+                <input type="radio" name="quality" id="low" value="low" checked> <label for="low" class="lang" data-en="Low" data-tr="Düşük">Low</label>
+                <input type="radio" name="quality" id="medium" value="medium"> <label for="medium" class="lang" data-en="Medium" data-tr="Orta">Medium</label>
+                <input type="radio" name="quality" id="high" value="high"> <label for="high" class="lang" data-en="High" data-tr="Yüksek">High</label>
             </div>
             <div class="quality-selector">
-                <label>Performance:</label>
+                <label class="lang" data-en="Performance:" data-tr="Performans:">Performance:</label>
                 <input type="checkbox" id="pause-render" name="pause-render">
-                <label for="pause-render">Pause render during interaction</label>
+                <label for="pause-render" class="lang" data-en="Pause render during interaction" data-tr="Etkileşim sırasında rendeyi duraklat">Pause render during interaction</label>
             </div>
             
             <div class="orbital-groups" id="orbital-buttons">
             </div>
         </div>
         <div id="fps-counter">FPS: 0</div>
+        <div id="language-switcher">
+            <span class="lang-flag active" data-lang="en">En</span>
+            <span class="lang-flag" data-lang="tr">Tr</span>
+        </div>
     </div>
 
     <script>
@@ -130,9 +155,44 @@
         let isRendering = true;
         let lastFrameTime = 0;
         let isPaused = false;
+        let currentLanguage = 'en';
+        
+        // translation 
+        const translations = {
+            'en': {
+                'title': 'Atomic Orbital Visualiser',
+                'clearAll': 'Clear All',
+                'addAllOrbitals': 'Add All Orbitals',
+                'quality': 'Quality:',
+                'low': 'Low',
+                'medium': 'Medium',
+                'high': 'High',
+                'performance': 'Performance:',
+                'pauseRender': 'Pause render during interaction',
+                'activeOrbitals': 'Active Orbitals:',
+                'noActiveOrbitals': 'No Active Orbitals',
+                'addAll': 'Add All',
+                'fps': 'FPS'
+            },
+            'tr': {
+                'title': 'Atomun Orbitalleri',
+                'clearAll': 'Tümünü Temizle',
+                'addAllOrbitals': 'Tüm Orbitalleri Ekle',
+                'quality': 'Grafikler:',
+                'low': 'Düşük',
+                'medium': 'Orta',
+                'high': 'Yüksek',
+                'performance': 'Performans:',
+                'pauseRender': 'Etkileşim sırasında renderi duraklat',
+                'activeOrbitals': 'Aktif Orbitaller:',
+                'noActiveOrbitals': 'Aktif Orbital Yok',
+                'addAll': 'Tümünü Ekle',
+                'fps': 'FPS'
+            }
+        };
         
         // orbital calculations
-        const orbitalCache = {};
+        let orbitalCache = {};
 
         const availableOrbitals = [
             { n: 1, l: 0, m: 0, name: "1s", color: 0xff0000 },
@@ -164,12 +224,39 @@
         let currentQuality = 'low';
         let currentOrbitals = [availableOrbitals[0]]; // start with 1s
         
-        const geometryCache = {};
-        const materialCache = {};
+        let geometryCache = {};
+        let materialCache = {};
 
         // track fps
         let frameCount = 0;
         let lastFpsUpdate = 0;
+
+        // Language switcher
+        function switchLanguage(lang) {
+            currentLanguage = lang;
+            
+            // Update active flag
+            document.querySelectorAll('.lang-flag').forEach(flag => {
+                flag.classList.remove('active');
+                if (flag.dataset.lang === lang) {
+                    flag.classList.add('active');
+                }
+            });
+            
+            // Update all elements with language class
+            document.querySelectorAll('.lang').forEach(element => {
+                if (element.dataset[lang]) {
+                    element.textContent = element.dataset[lang];
+                }
+            });
+            
+            // Recreate orbital buttons with new language
+            document.getElementById('orbital-buttons').innerHTML = '';
+            createOrbitalButtons();
+            
+            // Update orbital info
+            updateOrbitalInfo();
+        }
 
         // organize orbitals by type
         function groupOrbitalsByType() {
@@ -200,7 +287,7 @@
                 
                 const typeA = a.substr(1);
                 const typeB = b.substr(1);
-                                const typeOrder = { 's': 0, 'p': 1, 'd': 2, 'f': 3 };
+                const typeOrder = { 's': 0, 'p': 1, 'd': 2, 'f': 3 };
                 return typeOrder[typeA] - typeOrder[typeB];
             });
             
@@ -213,9 +300,8 @@
                 const groupHeader = document.createElement('h3');
                 groupHeader.textContent = groupName;
 
-            
                 const addGroupButton = document.createElement('button');
-                addGroupButton.textContent = "Add All";
+                addGroupButton.textContent = translations[currentLanguage]['addAll'];
                 addGroupButton.className = 'add-group-button';
                 addGroupButton.addEventListener('click', function() {
                     addOrbitalGroup(orbitals);
@@ -240,7 +326,7 @@
                         toggleOrbital(this, orbital);
                     });
                     
-                    // check if this orbital is already active
+                   
                     if (isOrbitalActive(orbital)) {
                         button.classList.add('active');
                     }
@@ -252,7 +338,7 @@
             });
         }
         
-        // check if an orbital is already in the current set
+       
         function isOrbitalActive(orbital) {
             return currentOrbitals.some(o => 
                 o.n === orbital.n && o.l === orbital.l && o.m === orbital.m
@@ -356,6 +442,13 @@
             const nucleus = new THREE.Mesh(nucleusGeometry, nucleusMaterial);
             scene.add(nucleus);
 
+            // setup language switcher
+            document.querySelectorAll('.lang-flag').forEach(flag => {
+                flag.addEventListener('click', () => {
+                    switchLanguage(flag.dataset.lang);
+                });
+            });
+
             // create orbital buttons
             createOrbitalButtons();
 
@@ -369,7 +462,6 @@
                 isPaused = false; // reset pause state when preference changes
             });
             
-            // Quality selector
             const qualityRadios = document.querySelectorAll('input[name="quality"]');
             qualityRadios.forEach(radio => {
                 radio.addEventListener('change', function() {
@@ -552,9 +644,9 @@
                 nGroups[n].push(...orbitals);
             }
             
-            let result = "Active Orbitals:<br>";
+            let result = translations[currentLanguage]['activeOrbitals'] + "<br>";
             if (Object.keys(nGroups).length === 0) {
-                result += "Not Active Any Orbitals";
+                result += translations[currentLanguage]['noActiveOrbitals'];
             } else {
                 Object.keys(nGroups).sort().forEach(n => {
                     result += `n=${n}: ${nGroups[n].join(", ")}<br>`;
@@ -600,7 +692,7 @@
             frameCount++;
             if (time - lastFpsUpdate > 1000) {
                 const fps = Math.round((frameCount * 1000) / (time - lastFpsUpdate));
-                document.getElementById('fps-counter').textContent = `FPS: ${fps}`;
+                document.getElementById('fps-counter').textContent = `${translations[currentLanguage]['fps']}: ${fps}`;
                 lastFpsUpdate = time;
                 frameCount = 0;
             }
