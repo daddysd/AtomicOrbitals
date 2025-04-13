@@ -10,6 +10,7 @@ orbitals are added
 <h1>Python version</h1>
 
 When you press "add orbital" button it adds a new orbital.
+
 When you press "remove orbital" button it deletes last added orbital.
 
 <h2>HTML version</h2>
@@ -17,9 +18,13 @@ When you press "remove orbital" button it deletes last added orbital.
 Diffrent language support.(tr and en)
 
 Added 3 diffrent quality versions.
+
 Low    = 12 Polygons per orbitals
+
 Medium = 20 Polygons per orbitals
+
 Hight  = 32 Polygons per orbitals
+
 
 Added Fps counter
 
