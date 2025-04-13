@@ -1,3 +1,4 @@
+I want to make project for adding orbitals and making molecules.
 AtomicOrbitals
 1s
 2s² 2p⁶
@@ -6,8 +7,9 @@ AtomicOrbitals
 orbitals are added
 
 <h1>Python version</h1>
-I want to make project for adding orbitals and making molecules.
 
+When you press "add orbital" button it adds a new orbital.
+When you press "remove orbital" button it deletes last added orbital.
 
 <h2>HTML version</h2>
 
