@@ -621,10 +621,16 @@
                     mesh.renderOrder = 0;
                 }
                 
-                // Eğer d orbital ise ekstra boyut ayarlaması (örneğin %70)
+                // Orbitaller için ekstra boyut ayarı:
+                // 4p orbitalleri için ölçek, varsayılan 1.0 yerine 2.0, 
+                // 3d orbitaller 4.5 
                 let orbitalAdjustment = 1.0;
-                if (orbital.l === 2) {
-                    orbitalAdjustment = 4.5;
+                if (orbital.name.startsWith("3p")) {
+                    orbitalAdjustment = 1.0;  // 3p için ölçek
+                } else if (orbital.name.startsWith("4p")) {
+                    orbitalAdjustment = 2.0;  // 4p için ölçek
+                } else if (orbital.l === 2) {5
+                    orbitalAdjustment = 4.5;  // 3d vb.
                 }
                 
                 const positions = geometry.attributes.position;
