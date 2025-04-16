@@ -566,7 +566,7 @@
             return geometryCache[key].clone(); // Önbellekteki versiyonu değiştirmemek için clone'lıyoruz.
         }
         
-        // Güncellenen getMaterial fonksiyonu (depthWrite false)
+        // Güncellenen getMaterial fonksiyonu
         function getMaterial(color) {
             const key = `material_${color}`;
             
@@ -576,7 +576,7 @@
                     transparent: true,
                     opacity: 0.5,
                     side: THREE.DoubleSide,
-                    depthWrite: false  // Derinlik yazmasını kapatıyoruz
+                    depthWrite: false 
                 });
             }
             
@@ -593,7 +593,7 @@
             
             if (currentOrbitals.length === 0) {
                 updateOrbitalInfo();
-                render(); // Zorla render
+                render(); // zorla render
                 return;
             }
             
@@ -614,7 +614,7 @@
                 
                 const mesh = new THREE.Mesh(geometry, material);
                 
-                // 2p ve 3d orbitallerinin render sırası ayarlanıyor.
+                // 2p ve 3d orbitallerinin render sırası
                 if (orbital.name.startsWith("2p") || orbital.name.startsWith("3d")) {
                     mesh.renderOrder = 1;
                 } else {
@@ -662,7 +662,7 @@
                 config[name].push(orbital.name);
             });
             
-            // Principal quantum number'a göre gruplandır
+            // principal quantum number'a göre gruplandır
             const nGroups = {};
             for (const [orbitalType, orbitals] of Object.entries(config)) {
                 const n = orbitalType[0];
