@@ -119,7 +119,7 @@
 <body>
     <div id="container">
         <div id="info">
-            <h2 class="lang" data-en="Atomic Orbital Visualiser" data-tr="Atom Orbitalleri Görselleştirici">Atomic Orbital Visualiser</h2>
+            <h2 class="lang" data-en="Atomic Orbital Visualiser" data-tr="Atomun Orbitalleri">Atomic Orbital Visualiser</h2>
             <div id="orbital-info" class="lang" data-en="Electron Configuration: 1s" data-tr="Elektron Konfigürasyonu: 1s">Electron Configuration: 1s</div>
         </div>
         <div id="controls">
@@ -136,7 +136,7 @@
             <div class="quality-selector">
                 <label class="lang" data-en="Performance:" data-tr="Performans:">Performance:</label>
                 <input type="checkbox" id="pause-render" name="pause-render">
-                <label for="pause-render" class="lang" data-en="Pause render during interaction" data-tr="Etkileşim sırasında rendeyi duraklat">Pause render during interaction</label>
+                <label for="pause-render" class="lang" data-en="Pause render during interaction" data-tr="Etkileşim sırasında renderi duraklat">Pause render during interaction</label>
             </div>
             
             <div class="orbital-groups" id="orbital-buttons">
@@ -509,6 +509,9 @@
         function calculateOrbital(n, l, m, resolution, scaleFactor = 0.5) {
             const data = [];
             
+            // This factor ensures higher n orbitals are properly sized
+            const nScaleFactor = n * n; // Scale quadratically with principal quantum number
+            
             for (let i = 0; i <= resolution; i++) {
                 const theta = (i / resolution) * Math.PI;
                 for (let j = 0; j <= resolution; j++) {
@@ -536,12 +539,16 @@
                     
                     Y = Math.abs(Y); // Use absolute value for visualization
                     
-                    const r = n; // radial distance
-                    let R = Math.exp(-r/n) * Math.pow(2*r/n, l); 
+                    // Improved radial function that scales properly with n
+                    const r = 1; // Normalized radius for calculation
+                    // Use a more accurate approximation of radial function
+                    let R = Math.exp(-r/(2*n)) * Math.pow(r/n, l);
                     
                     const psi = R * Y; 
                     
-                    const rScale = scaleFactor * n; 
+                    // Scale the orbital size based on principal quantum number
+                    // This ensures higher n orbitals are larger than lower n orbitals
+                    const rScale = scaleFactor * nScaleFactor;
                     
                     const x = rScale * psi * Math.sin(theta) * Math.cos(phi);
                     const y = rScale * psi * Math.sin(theta) * Math.sin(phi);
@@ -552,8 +559,7 @@
             }
             
             return data;
-        }
-
+        }       
         function getGeometry(resolution) {
             const key = `geometry_${resolution}`;
             
