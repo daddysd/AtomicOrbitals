@@ -326,7 +326,6 @@
                         toggleOrbital(this, orbital);
                     });
                     
-                   
                     if (isOrbitalActive(orbital)) {
                         button.classList.add('active');
                     }
@@ -338,7 +337,6 @@
             });
         }
         
-       
         function isOrbitalActive(orbital) {
             return currentOrbitals.some(o => 
                 o.n === orbital.n && o.l === orbital.l && o.m === orbital.m
@@ -509,9 +507,9 @@
         function calculateOrbital(n, l, m, resolution, scaleFactor = 0.5) {
             const data = [];
             
-            // This factor ensures higher n orbitals are properly sized
-            const nScaleFactor = n * n; // Scale quadratically with principal quantum number
-            
+            // Bu faktör, daha yüksek n değerli orbitallerin uygun şekilde boyutlanmasını sağlar
+            const nScaleFactor = n * n; // Principal quantum number'ın karesi
+                        
             for (let i = 0; i <= resolution; i++) {
                 const theta = (i / resolution) * Math.PI;
                 for (let j = 0; j <= resolution; j++) {
@@ -520,7 +518,7 @@
                     let Y = 0;
                     
                     if (l === 0) {
-                        Y = 0.5; // s orbital: spherical
+                        Y = 0.5; // s orbital: küresel
                     } else if (l === 1) {
                         if (m === 0) {
                             Y = Math.cos(theta); // p_z
@@ -537,17 +535,15 @@
                         }
                     }
                     
-                    Y = Math.abs(Y); // Use absolute value for visualization
+                    Y = Math.abs(Y); // Görselleştirme için mutlak değeri kullan
                     
-                    // Improved radial function that scales properly with n
-                    const r = 1; // Normalized radius for calculation
-                    // Use a more accurate approximation of radial function
+                    // Radial fonksiyon, n ile ölçekleniyor.
+                    const r = 1; // Hesaplama için normalize edilmiş yarıçap
                     let R = Math.exp(-r/(2*n)) * Math.pow(r/n, l);
                     
                     const psi = R * Y; 
                     
-                    // Scale the orbital size based on principal quantum number
-                    // This ensures higher n orbitals are larger than lower n orbitals
+                    // Orbital boyutunu scaleFactor ve nScaleFactor ile belirliyoruz
                     const rScale = scaleFactor * nScaleFactor;
                     
                     const x = rScale * psi * Math.sin(theta) * Math.cos(phi);
@@ -567,9 +563,10 @@
                 geometryCache[key] = new THREE.SphereGeometry(1, resolution, resolution);
             }
             
-            return geometryCache[key].clone(); // clone to avoid modifying the cached version
+            return geometryCache[key].clone(); // Önbellekteki versiyonu değiştirmemek için clone'lıyoruz.
         }
         
+        // Güncellenen getMaterial fonksiyonu (depthWrite false)
         function getMaterial(color) {
             const key = `material_${color}`;
             
@@ -577,8 +574,9 @@
                 materialCache[key] = new THREE.MeshPhongMaterial({
                     color: color,
                     transparent: true,
-                    opacity: 0.6,
-                    side: THREE.DoubleSide
+                    opacity: 0.5,
+                    side: THREE.DoubleSide,
+                    depthWrite: false  // Derinlik yazmasını kapatıyoruz
                 });
             }
             
@@ -586,16 +584,16 @@
         }
 
         function renderOrbitals() {
-            // only proceed if we're not paused
+            // Eğer render duraklatılmışsa devam etme
             if (isPaused) return;
             
-            // remove existing meshes
+            // Mevcut mesh'leri sahneden kaldır
             meshes.forEach(mesh => scene.remove(mesh));
             meshes = [];
             
             if (currentOrbitals.length === 0) {
                 updateOrbitalInfo();
-                render(); // force a render
+                render(); // Zorla render
                 return;
             }
             
@@ -603,6 +601,7 @@
             const resolution = qualitySettings[currentQuality].resolution;
             
             currentOrbitals.forEach(orbital => {
+                // Mevcut scale değeri, principal quantum number'a göre ayarlanıyor
                 const scale = 0.8 + 0.4 * (orbital.n / maxN);
                 
                 const orbitalData = getCachedOrbitalData(
@@ -615,10 +614,27 @@
                 
                 const mesh = new THREE.Mesh(geometry, material);
                 
+                // 2p ve 3d orbitallerinin render sırası ayarlanıyor.
+                if (orbital.name.startsWith("2p") || orbital.name.startsWith("3d")) {
+                    mesh.renderOrder = 1;
+                } else {
+                    mesh.renderOrder = 0;
+                }
+                
+                // Eğer d orbital ise ekstra boyut ayarlaması (örneğin %70)
+                let orbitalAdjustment = 1.0;
+                if (orbital.l === 2) {
+                    orbitalAdjustment = 4.5;
+                }
+                
                 const positions = geometry.attributes.position;
                 for (let i = 0; i < positions.count; i++) {
                     const data = orbitalData[i % orbitalData.length];
-                    positions.setXYZ(i, data.position.x, data.position.y, data.position.z);
+                    positions.setXYZ(i, 
+                        data.position.x * orbitalAdjustment, 
+                        data.position.y * orbitalAdjustment, 
+                        data.position.z * orbitalAdjustment
+                    );
                 }
                 
                 geometry.computeVertexNormals();
@@ -640,7 +656,7 @@
                 config[name].push(orbital.name);
             });
             
-            // organize by principal quantum number
+            // Principal quantum number'a göre gruplandır
             const nGroups = {};
             for (const [orbitalType, orbitals] of Object.entries(config)) {
                 const n = orbitalType[0];
@@ -662,13 +678,13 @@
             document.getElementById('orbital-info').innerHTML = result;
         }
 
-        // clear all orbitals
+        // Tüm orbitalleri temizle
         function clearOrbitals() {
             if (currentOrbitals.length === 0) return; 
             
             currentOrbitals = [];
             
-            // update button states
+            // Buton durumlarını güncelle
             const buttons = document.querySelectorAll('#orbital-buttons button:not(.add-group-button)');
             buttons.forEach(button => {
                 button.classList.remove('active');
